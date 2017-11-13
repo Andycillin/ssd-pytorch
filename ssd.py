@@ -7,8 +7,10 @@ from torch.autograd import Variable
 
 
 class SSD(nn.Module):
-    def __init__(self):
+    def __init__(self, phase, config):
         super(SSD, self).__init__()
 
+
     def forward(self, input):
+
         return []
