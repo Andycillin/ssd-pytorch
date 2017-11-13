@@ -3,5 +3,5 @@ A [Single Shot MultiBox Detector](https://arxiv.org/abs/1512.02325) Version impl
 
 ## Work in progress...
 
-# Credits
+## Credits
 ...
