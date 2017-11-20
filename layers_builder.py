@@ -1,11 +1,12 @@
 import torch.nn as nn
+from layers.multibox_layer import MultiBoxLayer
 
 
 def build_layers_from_cfg(config, num_of_classes):
     return {
         'base': build_base_layers(config['base']),
         'extras': build_extra_layers(config['extras']),
-        'heads': build_classify_head(config, num_of_classes)
+        'multibox': MultiBoxLayer(config, num_of_classes)
     }
 
 
@@ -25,11 +26,27 @@ def build_base_layers(base_config, batch_norm=False):
                 layers += [layer, nn.ReLU(inplace=True)]
             input_depth = cfg
 
+    layers2 = []
+    for cfg in base_config['config2']:
+        if cfg == 'M':
+            layers2 += [nn.MaxPool2d(kernel_size=2, stride=2)]
+        elif cfg == 'C':
+            layers2 += [nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=True)]
+        else:
+            layer = nn.Conv2d(input_depth, cfg, kernel_size=3, padding=1)
+            if batch_norm:
+                layers2 += [layer, nn.BatchNorm2d(cfg), nn.ReLU(inplace=True)]
+            else:
+                layers2 += [layer, nn.ReLU(inplace=True)]
+            input_depth = cfg
     pool_5 = nn.MaxPool2d(kernel_size=3, stride=1, padding=1)
     conv_6 = nn.Conv2d(input_depth, 1024, kernel_size=3, padding=6, dilation=6)
     conv_7 = nn.Conv2d(1024, 1024, kernel_size=1)
-    layers += [pool_5, conv_6, nn.ReLU(inplace=True), conv_7, nn.ReLU(inplace=True)]
-    return nn.ModuleList(layers)
+    layers2 += [pool_5, conv_6, nn.ReLU(inplace=True), conv_7, nn.ReLU(inplace=True)]
+    return {
+        'segment_1' : nn.Sequential(layers),
+        'segment_2' : nn.Sequential(layers2)
+    }
 
 
 def build_extra_layers(extra_config):
@@ -46,23 +63,3 @@ def build_extra_layers(extra_config):
             flag = not flag
         input_depth = cfg
     return nn.ModuleList(layers)
-
-
-def build_classify_head(config, num_of_classes):
-    loc_layers = []
-    conf_layers = []
-    sources = config['base_source_maps']
-    for index, source in enumerate(sources):
-        loc_layers += [
-            nn.Conv2d(config['base']['config'][source], config['prior_boxes'][index] * 4, kernel_size=3, padding=1)]
-        conf_layers += [
-            nn.Conv2d(config['base']['config'][source], config['prior_boxes'][index] * num_of_classes, kernel_size=3,
-                      padding=1)]
-    for index, input_depth in enumerate(config['extras']['config'][1::2], 2):
-        loc_layers += [nn.Conv2d(input_depth, config['prior_boxes'][index] * 4, kernel_size=3, padding=1)]
-        conf_layers += [nn.Conv2d(input_depth, config['prior_boxes'][index] * num_of_classes, kernel_size=3, padding=1)]
-
-    return {
-        'loc_head': nn.ModuleList(loc_layers),
-        'conf_head': nn.ModuleList(conf_layers)
-    }
