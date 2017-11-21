@@ -28,8 +28,8 @@ class BoxMatcher:
         area1 = (boxes1[:, 2] - boxes1[:, 0]) * (boxes1[:, 3] - boxes1[:, 1])  # N
         area2 = (boxes2[:, 2] - boxes2[:, 0]) * (boxes2[:, 3] - boxes2[:, 1])  # M
         # Transform to N x M
-        area1.unsqueeze(1).expand_as(intersection)
-        area2.unsqueeze(0).expand_as(intersection)
+        area1.unsqueeze_(1).expand_as(intersection)
+        area2.unsqueeze_(0).expand_as(intersection)
 
         return intersection / (area1 + area2 - intersection)
 
@@ -45,8 +45,8 @@ class BoxMatcher:
         max_overlap, max_overlap_idx = iou.max(0)  # Best label for each default box [1, num_of_default_boxes]
         max_overlap.squeeze_(0)
         max_overlap_idx.squeeze_(0)
-
         best_target_boxes = target_boxes[max_overlap_idx]
+
         # FIXME: add dynamic variances
         variances = [0.1, 0.2]
         delta_cxcy = (best_target_boxes[:, :2] + best_target_boxes[:, 2:]) / 2 - default_boxes[:, :2]
@@ -57,7 +57,8 @@ class BoxMatcher:
 
         target_conf = 1 + classes[max_overlap_idx]  # prepend background class
         target_conf[max_overlap < threshold] = 0  # keep iou > 50% only
-        return target_conf, target_loc
+
+        return target_loc, target_conf
 
     def convert_to_two_point_form(self, boxes):
         """
@@ -128,10 +129,10 @@ class BoxMatcher:
         variances = [0.1, 0.2]
         wh = torch.exp(loc[:, 2:] * variances[1]) * default_boxes[:, 2:]
         cxcy = loc[:, :2] * variances[0] * default_boxes[:, 2:] + default_boxes[:, :2]
-        boxes = torch.cat([cxcy - wh / 2, cxcy + wh / 2], 1)
+        boxes = torch.cat([cxcy - wh / 2, cxcy + wh / 2], 1)  # [8732,4]
 
-        max_conf, labels = conf.max(1)
-        ids = labels.squeeze(1).nonzero().squeeze(1)
+        max_conf, labels = conf.max(1, keepdim=True)  # [8732,1]
+        ids = labels.squeeze() # [#boxes,]
         keep = self.nms(boxes[ids], max_conf[ids].squeeze(1))
-
+        print(keep)
         return boxes[ids][keep], labels[ids][keep], max_conf[ids][keep]

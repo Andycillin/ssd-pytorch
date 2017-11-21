@@ -18,8 +18,8 @@ class L2Norm2d(nn.Module):
         self.scale = scale
 
     def forward(self, x, dim=1):
-        '''out = scale * x / sqrt(\sum x_i^2)'''
-        return self.scale * x * x.pow(2).sum(dim).clamp(min=1e-12).rsqrt().expand_as(x)
+        """out = scale * x / sqrt(\sum x_i^2)"""
+        return self.scale * x / (x.pow(2).sum(dim, keepdim=True).clamp(min=1e-12).rsqrt())
 
 
 class SSD(nn.Module):
@@ -37,11 +37,15 @@ class SSD(nn.Module):
 
     def forward(self, input):
         f_maps = []
-        x = self.base['segment_1'][input]
+        x = input
+        for i in range(23):
+            x = self.base[i](x)
+
         m = self.l2norm(x)
         f_maps.append(m)
+        for i in range(23,len(self.base)):
+            x = self.base[i](x)
 
-        x = self.base['segment_2'][input]
         f_maps.append(x)
 
         for k, v in enumerate(self.extras):
@@ -49,5 +53,6 @@ class SSD(nn.Module):
             if k % 2 == 1:
                 f_maps.append(x)
 
+        print("passed base and extra layers")
         pred_locs, pred_conf = self.multibox(f_maps)
         return pred_locs, pred_conf

@@ -3,16 +3,17 @@ from layers.multibox_layer import MultiBoxLayer
 
 
 def build_layers_from_cfg(config, num_of_classes):
+    base =  build_base_layers(config['base'])
     return {
-        'base': build_base_layers(config['base']),
+        'base': base,
         'extras': build_extra_layers(config['extras']),
-        'multibox': MultiBoxLayer(config, num_of_classes)
+        'multibox': MultiBoxLayer(config, base , num_of_classes)
     }
 
 
 def build_base_layers(base_config, batch_norm=False):
     layers = []
-    input_depth = base_config['in_channels']
+    input_depth = base_config['input_channels']
     for cfg in base_config['config']:
         if cfg == 'M':
             layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
@@ -26,32 +27,16 @@ def build_base_layers(base_config, batch_norm=False):
                 layers += [layer, nn.ReLU(inplace=True)]
             input_depth = cfg
 
-    layers2 = []
-    for cfg in base_config['config2']:
-        if cfg == 'M':
-            layers2 += [nn.MaxPool2d(kernel_size=2, stride=2)]
-        elif cfg == 'C':
-            layers2 += [nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=True)]
-        else:
-            layer = nn.Conv2d(input_depth, cfg, kernel_size=3, padding=1)
-            if batch_norm:
-                layers2 += [layer, nn.BatchNorm2d(cfg), nn.ReLU(inplace=True)]
-            else:
-                layers2 += [layer, nn.ReLU(inplace=True)]
-            input_depth = cfg
     pool_5 = nn.MaxPool2d(kernel_size=3, stride=1, padding=1)
     conv_6 = nn.Conv2d(input_depth, 1024, kernel_size=3, padding=6, dilation=6)
     conv_7 = nn.Conv2d(1024, 1024, kernel_size=1)
-    layers2 += [pool_5, conv_6, nn.ReLU(inplace=True), conv_7, nn.ReLU(inplace=True)]
-    return {
-        'segment_1' : nn.Sequential(layers),
-        'segment_2' : nn.Sequential(layers2)
-    }
+    layers += [pool_5, conv_6, nn.ReLU(inplace=True), conv_7, nn.ReLU(inplace=True)]
+    return nn.Sequential(*layers)
 
 
 def build_extra_layers(extra_config):
     layers = []
-    input_depth = extra_config['in_channels']
+    input_depth = extra_config['input_channels']
     flag = False
     for index, cfg in enumerate(extra_config['config']):
         if input_depth != 'S':
