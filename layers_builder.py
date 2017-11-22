@@ -31,7 +31,7 @@ def build_base_layers(base_config, batch_norm=False):
     conv_6 = nn.Conv2d(input_depth, 1024, kernel_size=3, padding=6, dilation=6)
     conv_7 = nn.Conv2d(1024, 1024, kernel_size=1)
     layers += [pool_5, conv_6, nn.ReLU(inplace=True), conv_7, nn.ReLU(inplace=True)]
-    return nn.Sequential(*layers)
+    return nn.ModuleList(layers)
 
 
 def build_extra_layers(extra_config):

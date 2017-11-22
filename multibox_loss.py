@@ -13,13 +13,11 @@ class MultiboxLoss(nn.Module):
         """ Cross entropy loss for each box w/o averaging
         """
         max = p.data.max()
-        return torch.log(torch.sum(torch.exp(p - max), 1)) + max - p.gather(1, t.view(-1, 1))
+        return torch.log(torch.sum(torch.exp(p - max), 1, keepdim=True)) + max - p.gather(1, t.view(-1, 1))
 
     def forward(self, loc_p, loc_t, conf_p, conf_t):
-
         batch_size, num_boxes, _ = loc_p.size()
         positives = conf_t > 0
-
 
         num_matched = positives.data.long().sum()
         if num_matched == 0:
@@ -41,8 +39,8 @@ class MultiboxLoss(nn.Module):
         _, idx = c_loss.sort(1, descending=True)
         _, rank = idx.sort(1)
 
-        num_pos = positives.long().sum(1)  # [N,1]
-        num_neg = torch.clamp(num_pos * 3, max=num_boxes - num_pos)
+        num_pos = positives.long().sum(1, keepdim=True)  # [N,1]
+        num_neg = torch.clamp(num_pos * 3, max=num_boxes - 1)
 
         negatives = rank < num_neg.expand_as(rank)
 
@@ -58,6 +56,6 @@ class MultiboxLoss(nn.Module):
 
         loc_loss /= num_matched
         c_loss /= num_matched
-        print ("loss calculated")
+        print("loss calculated")
         print('%f %f' % (loc_loss.data[0], c_loss.data[0]))
         return loc_loss + c_loss
