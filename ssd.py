@@ -38,12 +38,12 @@ class SSD(nn.Module):
     def forward(self, input):
         f_maps = []
         x = input
-        for i in range(23):
+        for i in range(23):  # pass through conv4_3
             x = self.base[i](x)
 
         m = self.l2norm(x)
         f_maps.append(m)
-        for i in range(23,len(self.base)):
+        for i in range(23, len(self.base)):
             x = self.base[i](x)
 
         f_maps.append(x)

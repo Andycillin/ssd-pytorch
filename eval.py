@@ -34,7 +34,7 @@ print('==> Preparing data..')
 transform = transforms.Compose([transforms.ToTensor(),
                                 transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))])
 
-trainset = ListDataset(root='./data/VOCdevkit/VOC2012/JPEGImages',
+trainset = ListDataset(root='./data',
                        list_file='./voc12_train.txt', train=True, transform=transform)
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=32, shuffle=True, num_workers=4)
 
@@ -52,7 +52,7 @@ if args.resume:
     start_epoch = checkpoint['epoch']
 else:
     # Convert from pretrained VGG model.
-    net.load_state_dict(torch.load('./ssd.pth'))
+    #net.load_state_dict(torch.load('./model/ssd.pth'))
     print("Start new...")
 
 criterion = MultiboxLoss(21)
@@ -62,38 +62,8 @@ if use_cuda:
     net.cuda()
     cudnn.benchmark = True
 
-optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=1e-4)
-
-
-# Training
-def train(epoch):
-    print('\nEpoch: %d' % epoch)
-    net.train()
-    train_loss = 0
-    for batch_idx, (images, loc_targets, conf_targets) in enumerate(trainloader):
-        if use_cuda:
-            images = images.cuda()
-            loc_targets = loc_targets.cuda()
-            conf_targets = conf_targets.cuda()
-        print("batch %d" % (batch_idx))
-        images = Variable(images)
-        loc_targets = Variable(loc_targets)
-        conf_targets = Variable(conf_targets)
-
-        optimizer.zero_grad()
-        loc_preds, conf_preds = net(images)
-        loss = criterion(loc_preds, loc_targets, conf_preds, conf_targets)
-        print("loss")
-        print(loss)
-        loss.backward()
-        optimizer.step()
-
-        train_loss += loss.data[0]
-        print('%.3f %.3f' % (loss.data[0], train_loss / (batch_idx + 1)))
-
-
 def test(epoch):
-    print('\nTest')
+    print('\nTesting...')
     net.eval()
     test_loss = 0
     for batch_idx, (images, loc_targets, conf_targets) in enumerate(testloader):
@@ -103,9 +73,8 @@ def test(epoch):
             conf_targets = conf_targets.cuda()
 
         images = Variable(images, volatile=True)
-        loc_targets = Variable(loc_targets)
-        conf_targets = Variable(conf_targets)
-
+        loc_targets = Variable(loc_targets, require_grad=False)
+        conf_targets = Variable(conf_targets, require_grad=False)
         loc_preds, conf_preds = net(images)
         loss = criterion(loc_preds, loc_targets, conf_preds, conf_targets)
         test_loss += loss.data[0]
@@ -128,5 +97,4 @@ def test(epoch):
 
 
 for epoch in range(start_epoch, start_epoch + 200):
-    train(epoch)
     test(epoch)
